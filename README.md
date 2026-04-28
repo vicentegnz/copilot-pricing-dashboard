@@ -17,24 +17,51 @@
 
 **Local-first analytics dashboard for GitHub Copilot.**
 
-See exactly how many tokens you have used, which models you have talked to, what each session cost, and how your usage trends over time -- all from your own machine, no cloud, no telemetry.
+See exactly how many tokens you have used, which models you have talked to, what
+each session cost, and how your usage trends over time -- all from your own
+machine, no cloud, no telemetry.
 
-This dashboard provides a detailed analysis of your GitHub Copilot usage, helping you understand your consumption patterns and associated costs. By running locally, it ensures that your data remains private and secure.
+This dashboard provides a detailed analysis of your GitHub Copilot usage,
+helping you understand your consumption patterns and associated costs. By
+running locally, it ensures that your data remains private and secure.
 
 ---
 
-## 갤러리
+## Screenshots
 
-Here are some screenshots of the dashboard in action:
+### Overview
 
-### Overview Page
-![Overview Page](https://raw.githubusercontent.com/vicentegnz/copilot-pricing-dashboard/main/screenshots/overview.png)
+Stat cards, daily token usage area chart, cost-by-model donut, and a
+GitHub-style activity heatmap — all at a glance.
 
-### Sessions Page
-![Sessions Page](https://raw.githubusercontent.com/vicentegnz/copilot-pricing-dashboard/main/screenshots/sessions.png)
+![Overview](./docs/screenshots/overview.png)
 
-### Costs Page
-![Costs Page](https://raw.githubusercontent.com/vicentegnz/copilot-pricing-dashboard/main/screenshots/costs.png)
+---
+
+### Sessions
+
+Searchable table of every recorded Copilot CLI session with message count, tool
+calls, models used, total tokens, and estimated cost.
+
+![Sessions](./docs/screenshots/sessions.png)
+
+---
+
+### Session Detail
+
+Full conversation replay with tool-call badges, per-model token breakdown, and a
+model-switch timeline.
+
+![Session Detail](./docs/screenshots/session-detail.png)
+
+---
+
+### Cost Analytics
+
+Cost-over-time chart stacked by model, top-10 sessions by cost, and a full
+per-model summary table.
+
+![Cost Analytics](./docs/screenshots/costs.png)
 
 ---
 

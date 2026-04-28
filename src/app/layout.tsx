@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import localFont from "next/font/local";
+import { Inter, Sora } from "next/font/google";
 import "./globals.css";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,9 +9,10 @@ const fontSans = Inter({
   variable: "--font-inter",
 });
 
-const fontCalSans = localFont({
-  src: "../../../public/fonts/CalSans-SemiBold.woff2",
+const fontHeading = Sora({
+  subsets: ["latin"],
   variable: "--font-cal-sans",
+  weight: ["600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -28,7 +28,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${fontSans.variable} ${fontCalSans.variable} dark`}
+      className={`${fontSans.variable} ${fontHeading.variable} dark`}
     >
       <body className="bg-background text-foreground min-h-screen flex">
         <TooltipProvider>
