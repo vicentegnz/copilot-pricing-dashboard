@@ -1,6 +1,7 @@
 # Copilot Pricing Dashboard
 
-> **Pricing data** is extracted from the [GitHub Copilot models and pricing reference](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing#pricing-tables).
+> **Pricing data** is extracted from the [GitHub Copilot models and pricing
+> reference](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing#pricing-tables).
 
 <p align="center">
   <a href="https://github.com/vicentegnz/copilot-pricing-dashboard/blob/main/LICENSE">
