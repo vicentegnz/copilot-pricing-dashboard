@@ -1,21 +1,22 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const fontSans = Inter({
   subsets: ["latin"],
+  variable: "--font-inter",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const fontCalSans = localFont({
+  src: "../../../public/fonts/CalSans-SemiBold.woff2",
+  variable: "--font-cal-sans",
 });
 
 export const metadata: Metadata = {
-  title: "copilot-ometer",
+  title: "Copilot-Pricing-Dashboard",
   description: "GitHub Copilot CLI Analytics Dashboard",
 };
 
@@ -27,12 +28,12 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} dark`}
+      className={`${fontSans.variable} ${fontCalSans.variable} dark`}
     >
-      <body className="bg-gray-950 text-white min-h-screen flex">
+      <body className="bg-background text-foreground min-h-screen flex">
         <TooltipProvider>
           <Sidebar />
-          <main className="flex-1 p-6 overflow-auto">
+          <main className="flex-1 p-8 overflow-auto">
             {children}
           </main>
         </TooltipProvider>

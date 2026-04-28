@@ -18,7 +18,7 @@ export function Sidebar() {
       <div className="p-4 border-b border-gray-800">
         <div className="flex items-center gap-2">
           <Activity className="h-6 w-6 text-blue-400" />
-          <span className="font-bold text-white text-lg">copilot-ometer</span>
+          <span className="font-bold text-white text-lg">Pricing Dashboard</span>
         </div>
         <p className="text-xs text-gray-500 mt-1">GitHub Copilot CLI Analytics</p>
       </div>
