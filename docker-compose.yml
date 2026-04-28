@@ -1,0 +1,14 @@
+services:
+  copilot-ometer:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount your local Copilot session-state directory (read-only)
+      # Adjust the host path for your OS:
+      #   Linux/macOS: ${HOME}/.copilot/session-state
+      #   Windows:     C:/Users/<YourName>/.copilot/session-state
+      - ${COPILOT_SESSION_DIR:-~/.copilot/session-state}:/data/sessions:ro
+    environment:
+      - COPILOT_SESSION_DIR=/data/sessions
+    restart: unless-stopped
