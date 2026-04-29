@@ -161,6 +161,7 @@ export function parseSession(dir: string): SessionInfo | null {
 
   return {
     id: sessionId,
+    source: 'cli' as const,
     name: workspaceName ?? sessionId,
     startTime: startTime || new Date(0).toISOString(),
     endTime: lastShutdownTimestamp,
@@ -179,41 +180,158 @@ export function parseSession(dir: string): SessionInfo | null {
   };
 }
 
-export async function getAllSessions(): Promise<SessionInfo[]> {
-  const sessionsDir = getSessionsDir();
-  if (!fs.existsSync(sessionsDir)) return [];
+export function getVSCodeWorkspaceStorageDir(): string {
+  if (process.env.VSCODE_WORKSPACE_STORAGE_DIR) {
+    return process.env.VSCODE_WORKSPACE_STORAGE_DIR;
+  }
+  const home = os.homedir();
+  if (process.platform === 'win32') {
+    return path.join(home, 'AppData', 'Roaming', 'Code', 'User', 'workspaceStorage');
+  }
+  if (process.platform === 'darwin') {
+    return path.join(home, 'Library', 'Application Support', 'Code', 'User', 'workspaceStorage');
+  }
+  // Linux
+  return path.join(home, '.config', 'Code', 'User', 'workspaceStorage');
+}
 
-  const entries = fs.readdirSync(sessionsDir, { withFileTypes: true });
-  const sessions: SessionInfo[] = [];
+function decodeWorkspaceFolderUri(folderUri: string): string {
+  try {
+    // file:///c%3A/Develop/pezaio/checkout => c:/Develop/pezaio/checkout
+    return decodeURIComponent(folderUri.replace(/^file:\/\/\//, ''));
+  } catch {
+    return folderUri;
+  }
+}
 
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-    const dir = path.join(sessionsDir, entry.name);
+export function parseVSCodeSession(transcriptFile: string, workspaceFolder: string): SessionInfo | null {
+  if (!fs.existsSync(transcriptFile)) return null;
+
+  const sessionId = path.basename(transcriptFile, '.jsonl');
+  const workspaceName = workspaceFolder ? path.basename(workspaceFolder) : sessionId;
+
+  let startTime = '';
+  let copilotVersion = '';
+  let userMessageCount = 0;
+  let toolCallCount = 0;
+
+  const lines = fs.readFileSync(transcriptFile, 'utf-8').split('\n');
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    let event: RawEvent;
     try {
-      const session = parseSession(dir);
-      if (session) sessions.push(session);
+      event = JSON.parse(trimmed) as RawEvent;
     } catch {
-      // skip malformed sessions
+      continue;
+    }
+
+    const data = event.data as Record<string, unknown> | undefined;
+
+    if (event.type === 'session.start' && data) {
+      if (!startTime && data.startTime) startTime = data.startTime as string;
+      if (!copilotVersion && data.copilotVersion) copilotVersion = data.copilotVersion as string;
+    } else if (event.type === 'user.message') {
+      userMessageCount++;
+    } else if (event.type === 'tool.execution_start') {
+      toolCallCount++;
     }
   }
 
-  return sessions.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+  if (!startTime) return null;
+
+  return {
+    id: sessionId,
+    source: 'vscode' as const,
+    name: workspaceName,
+    startTime,
+    endTime: undefined,
+    cwd: workspaceFolder,
+    copilotVersion,
+    userMessageCount,
+    toolCallCount,
+    modelMetrics: {},
+    totalCost: 0,
+    totalInputTokens: 0,
+    totalOutputTokens: 0,
+    totalCacheReadTokens: 0,
+    totalCacheWriteTokens: 0,
+    modelsUsed: [],
+    primaryModel: '',
+  };
 }
 
-export async function getSessionDetail(id: string): Promise<SessionDetail | null> {
+export async function getVSCodeSessions(): Promise<SessionInfo[]> {
+  const storageDir = getVSCodeWorkspaceStorageDir();
+  if (!fs.existsSync(storageDir)) return [];
+
+  const sessions: SessionInfo[] = [];
+  const workspaceDirs = fs.readdirSync(storageDir, { withFileTypes: true })
+    .filter(e => e.isDirectory());
+
+  for (const workspaceDir of workspaceDirs) {
+    const copilotChatDir = path.join(storageDir, workspaceDir.name, 'GitHub.copilot-chat');
+    const transcriptsDir = path.join(copilotChatDir, 'transcripts');
+    const workspaceJsonPath = path.join(storageDir, workspaceDir.name, 'workspace.json');
+
+    if (!fs.existsSync(transcriptsDir)) continue;
+
+    let workspaceFolder = '';
+    if (fs.existsSync(workspaceJsonPath)) {
+      try {
+        const json = JSON.parse(fs.readFileSync(workspaceJsonPath, 'utf-8')) as Record<string, unknown>;
+        if (json.folder) workspaceFolder = decodeWorkspaceFolderUri(json.folder as string);
+      } catch {
+        // ignore
+      }
+    }
+
+    const transcriptFiles = fs.readdirSync(transcriptsDir)
+      .filter(f => f.endsWith('.jsonl'));
+
+    for (const file of transcriptFiles) {
+      try {
+        const session = parseVSCodeSession(path.join(transcriptsDir, file), workspaceFolder);
+        if (session) sessions.push(session);
+      } catch {
+        // skip malformed sessions
+      }
+    }
+  }
+
+  return sessions;
+}
+
+export async function getAllSessions(): Promise<SessionInfo[]> {
   const sessionsDir = getSessionsDir();
-  const dir = path.join(sessionsDir, id);
-  const eventsPath = path.join(dir, 'events.jsonl');
+  const cliSessions: SessionInfo[] = [];
 
-  if (!fs.existsSync(eventsPath)) return null;
+  if (fs.existsSync(sessionsDir)) {
+    const entries = fs.readdirSync(sessionsDir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+      const dir = path.join(sessionsDir, entry.name);
+      try {
+        const session = parseSession(dir);
+        if (session) cliSessions.push(session);
+      } catch {
+        // skip malformed sessions
+      }
+    }
+  }
 
-  const base = parseSession(dir);
-  if (!base) return null;
+  const vscodeSessions = await getVSCodeSessions();
 
+  const all = [...cliSessions, ...vscodeSessions];
+  return all.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+}
+
+function parseMessagesFromJsonl(filePath: string, isCli: boolean): { messages: MessageEvent[]; modelTimeline: { timestamp: string; model: string }[] } {
   const messages: MessageEvent[] = [];
   const modelTimeline: { timestamp: string; model: string }[] = [];
 
-  const lines = fs.readFileSync(eventsPath, 'utf-8').split('\n');
+  const lines = fs.readFileSync(filePath, 'utf-8').split('\n');
 
   for (const line of lines) {
     const trimmed = line.trim();
@@ -233,7 +351,7 @@ export async function getSessionDetail(id: string): Promise<SessionDetail | null
       messages.push({
         type: 'user',
         timestamp: ts,
-        content: stripMetadataTags(raw),
+        content: isCli ? stripMetadataTags(raw) : raw,
       });
     } else if (event.type === 'assistant.message' && data) {
       const toolRequests = (data.toolRequests as Array<{ name: string; arguments?: Record<string, unknown> }>) ?? [];
@@ -261,7 +379,7 @@ export async function getSessionDetail(id: string): Promise<SessionDetail | null
         toolName: (data.toolName as string) ?? '',
         durationMs: (data.durationMs as number) ?? 0,
       });
-    } else if (event.type === 'session.model_change' && data) {
+    } else if (isCli && event.type === 'session.model_change' && data) {
       modelTimeline.push({
         timestamp: ts,
         model: (data.newModel as string) ?? '',
@@ -269,6 +387,57 @@ export async function getSessionDetail(id: string): Promise<SessionDetail | null
     }
   }
 
+  return { messages, modelTimeline };
+}
+
+function findVSCodeTranscriptFile(id: string): { transcriptFile: string; workspaceFolder: string } | null {
+  const storageDir = getVSCodeWorkspaceStorageDir();
+  if (!fs.existsSync(storageDir)) return null;
+
+  const workspaceDirs = fs.readdirSync(storageDir, { withFileTypes: true })
+    .filter(e => e.isDirectory());
+
+  for (const workspaceDir of workspaceDirs) {
+    const transcriptsDir = path.join(storageDir, workspaceDir.name, 'GitHub.copilot-chat', 'transcripts');
+    const transcriptFile = path.join(transcriptsDir, `${id}.jsonl`);
+    if (fs.existsSync(transcriptFile)) {
+      const workspaceJsonPath = path.join(storageDir, workspaceDir.name, 'workspace.json');
+      let workspaceFolder = '';
+      if (fs.existsSync(workspaceJsonPath)) {
+        try {
+          const json = JSON.parse(fs.readFileSync(workspaceJsonPath, 'utf-8')) as Record<string, unknown>;
+          if (json.folder) workspaceFolder = decodeWorkspaceFolderUri(json.folder as string);
+        } catch {
+          // ignore
+        }
+      }
+      return { transcriptFile, workspaceFolder };
+    }
+  }
+  return null;
+}
+
+export async function getSessionDetail(id: string): Promise<SessionDetail | null> {
+  // Try CLI session first
+  const sessionsDir = getSessionsDir();
+  const dir = path.join(sessionsDir, id);
+  const eventsPath = path.join(dir, 'events.jsonl');
+
+  if (fs.existsSync(eventsPath)) {
+    const base = parseSession(dir);
+    if (!base) return null;
+    const { messages, modelTimeline } = parseMessagesFromJsonl(eventsPath, true);
+    return { ...base, messages, modelTimeline };
+  }
+
+  // Fall back to VS Code session
+  const vscodeMatch = findVSCodeTranscriptFile(id);
+  if (!vscodeMatch) return null;
+
+  const base = parseVSCodeSession(vscodeMatch.transcriptFile, vscodeMatch.workspaceFolder);
+  if (!base) return null;
+
+  const { messages, modelTimeline } = parseMessagesFromJsonl(vscodeMatch.transcriptFile, false);
   return { ...base, messages, modelTimeline };
 }
 

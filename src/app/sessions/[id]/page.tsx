@@ -130,6 +130,17 @@ export default function SessionDetailPage() {
         title={session.name}
         subtitle={`${formatDateTime(session.startTime)} · ${formatSessionDuration(session.startTime, session.endTime)}`}
       />
+      <div className="mb-4">
+        {session.source === 'vscode' ? (
+          <Badge variant="outline" className="text-xs border-blue-700 text-blue-400 bg-blue-950/40 px-2 py-0.5">
+            VS Code
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="text-xs border-gray-600 text-gray-400 bg-gray-800/40 px-2 py-0.5">
+            CLI
+          </Badge>
+        )}
+      </div>
 
       <div className="flex gap-4">
         {/* Left: message timeline */}

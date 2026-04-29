@@ -10,6 +10,7 @@ export interface ModelUsage {
 
 export interface SessionInfo {
   id: string;
+  source: 'cli' | 'vscode';
   name: string;
   startTime: string;
   endTime?: string;
